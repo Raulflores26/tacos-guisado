@@ -16,111 +16,142 @@ if 'menu' not in st.session_state:
 if 'ventas' not in st.session_state:
     st.session_state.ventas = []
 
-# --- TÍTULO PRINCIPAL ---
+# --- SISTEMA DE AUTENTICACIÓN / ROLES ---
+if 'autenticado' not in st.session_state:
+    st.session_state.autenticado = False
+if 'rol_usuario' not in st.session_state:
+    st.session_state.rol_usuario = None
+
+# TÍTULO PRINCIPAL
 st.title("🌮 Control de Ventas - Taquería")
 
-# Menú lateral para elegir la vista
-modo = st.sidebar.selectbox("Selecciona la Vista", ["Celular (Cajero / Ventas)", "Panel de Dueño (Reportes y Menú)"])
-
-# ==========================================
-# VISTA 1: CELULAR - REGISTRO RÁPIDO DE VENTAS
-# ==========================================
-if modo == "Celular (Cajero / Ventas)":
-    st.header("📲 Terminal de Venta")
-    st.write("Selecciona el guisado y la cantidad vendida:")
-
-    # Filtramos solo los guisados activos del día
-    guisados_activos = [g for g, info in st.session_state.menu.items() if info["activo"]]
-
-    if not guisados_activos:
-        st.warning("⚠ No hay guisados activos hoy. Pídele al administrador que actualice el menú.")
-    else:
-        with st.form("form_venta"):
-            guisado_elegido = st.selectbox("Guisado", guisados_activos)
-            cantidad = st.number_input("Cantidad de tacos / órdenes", min_value=1, max_value=50, value=1)
-            
-            # Botón de registro
-            enviar = st.form_submit_button("Registrar Venta 🚀")
-            
-            if enviar:
-                precio_unitario = st.session_state.menu[guisado_elegido]["precio"]
-                total_venta = precio_unitario * cantidad
-                hora_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                
-                # Guardamos en la lista de ventas
-                st.session_state.ventas.append({
-                    "Hora": hora_actual,
-                    "Guisado": guisado_elegido,
-                    "Cantidad": cantidad,
-                    "Total": total_venta
-                })
-                st.success(f"¡Venta registrada! {cantidad}x {guisado_elegido} (${total_venta} MXN)")
-
-    # Mostrar ventas recientes de la sesión para control rápido
-    if st.session_state.ventas:
-        st.subheader("📋 Ventas Recientes de Hoy")
-        df_ventas = pd.DataFrame(st.session_state.ventas)
-        st.dataframe(df_ventas.tail(5), use_container_width=True)
-
-# ==========================================
-# VISTA 2: PANEL DE DUEÑO (REPORTES Y MENÚ)
-# ==========================================
-elif modo == "Panel de Dueño (Reportes y Menú)":
-    st.header("📊 Panel de Control y Administración")
+# Si no ha iniciado sesión, mostramos la pantalla de acceso en la barra lateral o centro
+if not st.session_state.autenticado:
+    st.info("👋 ¡Hola! Por favor selecciona con qué perfil deseas entrar:")
     
-    # Pestañas dentro del panel de dueño
-    tab1, tab2 = st.tabs(["📈 Gráficas y Reportes", "⚙️ Modificar Menú y Precios"])
-
-    with tab1:
-        st.subheader("Resumen de Ventas")
-        if not st.session_state.ventas:
-            st.info("Aún no hay ventas registradas hoy.")
-        else:
-            df_ventas = pd.DataFrame(st.session_state.ventas)
-            
-            # Métricas rápidas
-            total_dinero = df_ventas["Total"].sum()
-            total_tacos = df_ventas["Cantidad"].sum()
-            
-            col1, col2 = st.columns(2)
-            col1.metric("Dinero Total Vendido", f"${total_dinero} MXN")
-            col2.metric("Total de Unidades Vendidas", total_tacos)
-            
-            # Gráfica visual de los más vendidos
-            st.markdown("### Guisados Más Vendidos")
-            ventas_por_guisado = df_ventas.groupby("Guisado")["Cantidad"].sum()
-            st.bar_chart(ventas_por_guisado)
-
-    with tab2:
-        st.subheader("Configuración del Menú y Precios")
-        st.write("Modifica los precios o activa/desactiva los platillos y presiona el botón para guardar.")
+    with st.form("form_login"):
+        rol_seleccionado = st.selectbox("Selecciona tu rol", ["Celular (Cajero / Ventas)", "Panel de Dueño (Reportes y Menú)"])
         
-        with st.form("form_editar_menu"):
-            nuevos_precios = {}
-            nuevos_estados = {}
+        password = ""
+        if rol_seleccionado == "Panel de Dueño (Reportes y Menú)":
+            password = st.text_input("Contraseña de Dueño", type="password")
+            st.caption("Nota: La contraseña por defecto es **1234**")
             
-            for guisado, info in st.session_state.menu.items():
-                st.markdown(f"### 🌮 {guisado}")
-                col_p, col_a = st.columns(2)
-                with col_p:
-                    nuevos_precios[guisado] = st.number_input(
-                        f"Precio de {guisado}", 
-                        min_value=0, 
-                        value=info["precio"], 
-                        key=f"precio_{guisado}"
-                    )
-                with col_a:
-                    nuevos_estados[guisado] = st.checkbox(
-                        "¿Disponible hoy?", 
-                        value=info["activo"], 
-                        key=f"activo_{guisado}"
-                    )
-                st.divider()
+        btn_entrar = st.form_submit_button("Entrar 🚀")
+        
+        if btn_entrar:
+            if rol_seleccionado == "Panel de Dueño (Reportes y Menú)":
+                if password == "1234":  # Puedes cambiar "1234" por la contraseña que quieras
+                    st.session_state.autenticado = True
+                    st.session_state.rol_usuario = "dueño"
+                    st.rerun()
+                else:
+                    st.error("❌ Contraseña incorrecta. Inténtalo de nuevo.")
+            else:
+                st.session_state.autenticado = True
+                st.session_state.rol_usuario = "cajero"
+                st.rerun()
+
+# Si ya inició sesión, mostramos la aplicación según su rol
+else:
+    # Botón para cerrar sesión en la barra lateral
+    if st.sidebar.button("Cerrar Sesión 🔒"):
+        st.session_state.autenticado = False
+        st.session_state.rol_usuario = None
+        st.rerun()
+
+    # ==========================================
+    # VISTA 1: CAJERO (VENTAS)
+    # ==========================================
+    if st.session_state.rol_usuario == "cajero":
+        st.header("📲 Terminal de Venta (Cajero)")
+        st.write("Selecciona el guisado y la cantidad vendida:")
+
+        guisados_activos = [g for g, info in st.session_state.menu.items() if info["activo"]]
+
+        if not guisados_activos:
+            st.warning("⚠ No hay guisados activos hoy. Pídele al administrador que actualice el menú.")
+        else:
+            with st.form("form_venta"):
+                guisado_elegido = st.selectbox("Guisado", guisados_activos)
+                cantidad = st.number_input("Cantidad de tacos / órdenes", min_value=1, max_value=50, value=1)
                 
-            guardar_cambios = st.form_submit_button("Guardar Cambios en el Menú 💾")
+                enviar = st.form_submit_button("Registrar Venta 🚀")
+                
+                if enviar:
+                    precio_unitario = st.session_state.menu[guisado_elegido]["precio"]
+                    total_venta = precio_unitario * cantidad
+                    hora_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    
+                    st.session_state.ventas.append({
+                        "Hora": hora_actual,
+                        "Guisado": guisado_elegido,
+                        "Cantidad": cantidad,
+                        "Total": total_venta
+                    })
+                    st.success(f"¡Venta registrada! {cantidad}x {guisado_elegido} (${total_venta} MXN)")
+
+        if st.session_state.ventas:
+            st.subheader("📋 Ventas Recientes de Hoy")
+            df_ventas = pd.DataFrame(st.session_state.ventas)
+            st.dataframe(df_ventas.tail(5), use_container_width=True)
+
+    # ==========================================
+    # VISTA 2: PANEL DE DUEÑO (REPORTES Y MENÚ)
+    # ==========================================
+    elif st.session_state.rol_usuario == "dueño":
+        st.header("📊 Panel de Control y Administración (Dueño)")
+        
+        tab1, tab2 = st.tabs(["📈 Gráficas y Reportes", "⚙️ Modificar Menú y Precios"])
+
+        with tab1:
+            st.subheader("Resumen de Ventas")
+            if not st.session_state.ventas:
+                st.info("Aún no hay ventas registradas hoy.")
+            else:
+                df_ventas = pd.DataFrame(st.session_state.ventas)
+                
+                total_dinero = df_ventas["Total"].sum()
+                total_tacos = df_ventas["Cantidad"].sum()
+                
+                col1, col2 = st.columns(2)
+                col1.metric("Dinero Total Vendido", f"${total_dinero} MXN")
+                col2.metric("Total de Unidades Vendidas", total_tacos)
+                
+                st.markdown("### Guisados Más Vendidos")
+                ventas_por_guisado = df_ventas.groupby("Guisado")["Cantidad"].sum()
+                st.bar_chart(ventas_por_guisado)
+
+        with tab2:
+            st.subheader("Configuración del Menú y Precios")
+            st.write("Modifica los precios o activa/desactiva los platillos y presiona el botón para guardar.")
             
-            if guardar_cambios:
-                for guisado in st.session_state.menu:
-                    st.session_state.menu[guisado]["precio"] = nuevos_precios[guisado]
-                    st.session_state.menu[guisado]["activo"] = nuevos_estados[guisado]
-                st.success("¡Menú y precios actualizados correctamente!")
+            with st.form("form_editar_menu"):
+                nuevos_precios = {}
+                nuevos_estados = {}
+                
+                for guisado, info in st.session_state.menu.items():
+                    st.markdown(f"### 🌮 {guisado}")
+                    col_p, col_a = st.columns(2)
+                    with col_p:
+                        nuevos_precios[guisado] = st.number_input(
+                            f"Precio de {guisado}", 
+                            min_value=0, 
+                            value=info["precio"], 
+                            key=f"precio_{guisado}"
+                        )
+                    with col_a:
+                        nuevos_estados[guisado] = st.checkbox(
+                            "¿Disponible hoy?", 
+                            value=info["activo"], 
+                            key=f"activo_{guisado}"
+                        )
+                    st.divider()
+                    
+                guardar_cambios = st.form_submit_button("Guardar Cambios en el Menú 💾")
+                
+                if guardar_cambios:
+                    for guisado in st.session_state.menu:
+                        st.session_state.menu[guisado]["precio"] = nuevos_precios[guisado]
+                        st.session_state.menu[guisado]["activo"] = nuevos_estados[guisado]
+                    st.success("¡Menú y precios actualizados correctamente!")
