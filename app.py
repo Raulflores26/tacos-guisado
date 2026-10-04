@@ -25,7 +25,7 @@ if 'rol_usuario' not in st.session_state:
 # TÍTULO PRINCIPAL
 st.title("🌮 Control de Ventas - Taquería")
 
-# Si no ha iniciado sesión, mostramos la pantalla de acceso en la barra lateral o centro
+# Si no ha iniciado sesión, mostramos la pantalla de acceso
 if not st.session_state.autenticado:
     st.info("👋 ¡Hola! Por favor selecciona con qué perfil deseas entrar:")
     
@@ -35,13 +35,12 @@ if not st.session_state.autenticado:
         password = ""
         if rol_seleccionado == "Panel de Dueño (Reportes y Menú)":
             password = st.text_input("Contraseña de Dueño", type="password")
-            st.caption("Nota: La contraseña por defecto es **1234**")
             
         btn_entrar = st.form_submit_button("Entrar 🚀")
         
         if btn_entrar:
             if rol_seleccionado == "Panel de Dueño (Reportes y Menú)":
-                if password == "1234":  # Puedes cambiar "1234" por la contraseña que quieras
+                if password == "1234":  # Contraseña secreta
                     st.session_state.autenticado = True
                     st.session_state.rol_usuario = "dueño"
                     st.rerun()
