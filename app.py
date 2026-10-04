@@ -63,40 +63,62 @@ else:
     st.markdown("---")
 
     # ==========================================
-    # VISTA 1: CAJERO (VENTAS)
+    # VISTA 1: CAJERO (VENTAS RÁPIDAS POR GUISADO)
     # ==========================================
     if st.session_state.rol_usuario == "cajero":
         st.header("📲 Terminal de Venta (Cajero)")
-        st.write("Selecciona el guisado y la cantidad vendida:")
+        st.write("Indica cuántos tacos de cada guisado lleva el cliente:")
 
-        guisados_activos = [g for g, info in st.session_state.menu.items() if info["activo"]]
+        guisados_activos = {g: info for g, info in st.session_state.menu.items() if info["activo"]}
 
         if not guisados_activos:
-            st.warning("⚠ No hay guisados activos hoy. Pídele al administrador que actualice el menú.")
+            st.warning("⚠ No hay guisados activos hoy. Pídele al administrador que active el menú.")
         else:
-            with st.form("form_venta"):
-                guisado_elegido = st.selectbox("Guisado", guisados_activos)
-                cantidad = st.number_input("Cantidad de tacos / órdenes", min_value=1, max_value=50, value=1)
+            with st.form("form_venta_multitaco"):
+                cantidades = {}
+                for guisado, info in guisados_activos.items():
+                    col_g, col_p, col_c = st.columns([2, 1, 1])
+                    with col_g:
+                        st.markdown(f"**{guisado}**")
+                    with col_p:
+                        st.caption(f"${info['precio']} c/u")
+                    with col_c:
+                        cantidades[guisado] = st.number_input(
+                            "Cant", min_value=0, max_value=50, value=0, 
+                            key=f"cajero_{guisado}", label_visibility="collapsed"
+                        )
                 
-                enviar = st.form_submit_button("Registrar Venta 🚀")
+                st.markdown("---")
+                enviar_orden = st.form_submit_button("🚀 Registrar Venta de la Orden", use_container_width=True)
                 
-                if enviar:
-                    precio_unitario = st.session_state.menu[guisado_elegido]["precio"]
-                    total_venta = precio_unitario * cantidad
-                    hora_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                if enviar_orden:
+                    items_vendidos = {g: cant for g, cant in cantidades.items() if cant > 0}
                     
-                    st.session_state.ventas.append({
-                        "Hora": hora_actual,
-                        "Guisado": guisado_elegido,
-                        "Cantidad": cantidad,
-                        "Total": total_venta
-                    })
-                    st.success(f"¡Venta registrada! {cantidad}x {guisado_elegido} (${total_venta} MXN)")
+                    if not items_vendidos:
+                        st.warning("⚠️ Selecciona al menos un taco para registrar la venta.")
+                    else:
+                        hora_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        total_orden = 0
+                        
+                        for guisado, cantidad in items_vendidos.items():
+                            precio_unitario = st.session_state.menu[guisado]["precio"]
+                            total_linea = precio_unitario * cantidad
+                            total_orden += total_linea
+                            
+                            st.session_state.ventas.append({
+                                "Hora": hora_actual,
+                                "Guisado": guisado,
+                                "Cantidad": cantidad,
+                                "Total": total_linea
+                            })
+                            
+                        st.success(f"¡Venta registrada con éxito! Total de la orden: ${total_orden} MXN")
+                        st.rerun()
 
         if st.session_state.ventas:
             st.subheader("📋 Ventas Recientes de Hoy")
             df_ventas = pd.DataFrame(st.session_state.ventas)
-            st.dataframe(df_ventas.tail(5), use_container_width=True)
+            st.dataframe(df_ventas.tail(6), use_container_width=True)
 
     # ==========================================
     # VISTA 2: PANEL DE DUEÑO (REPORTES Y MENÚ)
@@ -125,7 +147,6 @@ else:
                 st.bar_chart(ventas_por_guisado)
 
                 st.markdown("---")
-                # BOTÓN PARA BORRAR EL HISTORIAL DE VENTAS
                 if st.button("🗑️ Borrar Historial de Ventas"):
                     st.session_state.ventas = []
                     st.success("¡Historial de ventas borrado con éxito!")
