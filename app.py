@@ -16,6 +16,10 @@ if 'menu' not in st.session_state:
 if 'ventas' not in st.session_state:
     st.session_state.ventas = []
 
+# Variables de control para limpiar formularios
+if 'form_key_counter' not in st.session_state:
+    st.session_state.form_key_counter = 0
+
 # --- SISTEMA DE AUTENTICACIÓN / ROLES ---
 if 'autenticado' not in st.session_state:
     st.session_state.autenticado = False
@@ -188,9 +192,11 @@ else:
             st.markdown("---")
             st.subheader("➕ Agregar Nuevo Guisado")
             
-            with st.form("form_agregar_guisado"):
-                nuevo_nombre = st.text_input("Nombre del nuevo guisado (ej. Suadero)", key="input_nuevo_nombre")
-                nuevo_precio = st.number_input("Precio inicial ($ MXN)", min_value=0, value=25, key="input_nuevo_precio")
+            # Usamos un contador dinámico en el key del formulario para limpiar los campos al registrar
+            form_key = f"form_agregar_guisado_{st.session_state.form_key_counter}"
+            with st.form(form_key):
+                nuevo_nombre = st.text_input("Nombre del nuevo guisado (ej. Suadero)")
+                nuevo_precio = st.number_input("Precio inicial ($ MXN)", min_value=0, value=25)
                 btn_agregar = st.form_submit_button("Agregar al Menú 🚀")
                 
                 if btn_agregar:
@@ -199,8 +205,8 @@ else:
                             st.warning("⚠ Ese guisado ya existe en el menú.")
                         else:
                             st.session_state.menu[nuevo_nombre] = {"precio": nuevo_precio, "activo": True}
-                            # Limpiamos explícitamente el valor en session_state para que aparezca vacío al recargar
-                            st.session_state["input_nuevo_nombre"] = ""
+                            # Incrementamos el contador para recrear el formulario limpio en blanco
+                            st.session_state.form_key_counter += 1
                             st.success(f"¡Guisado '{nuevo_nombre}' agregado con éxito!")
                             st.rerun()
                     else:
