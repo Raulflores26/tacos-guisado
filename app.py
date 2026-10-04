@@ -187,9 +187,10 @@ else:
 
             st.markdown("---")
             st.subheader("➕ Agregar Nuevo Guisado")
+            
             with st.form("form_agregar_guisado"):
-                nuevo_nombre = st.text_input("Nombre del nuevo guisado (ej. Suadero)")
-                nuevo_precio = st.number_input("Precio inicial ($ MXN)", min_value=0, value=25)
+                nuevo_nombre = st.text_input("Nombre del nuevo guisado (ej. Suadero)", key="input_nuevo_nombre")
+                nuevo_precio = st.number_input("Precio inicial ($ MXN)", min_value=0, value=25, key="input_nuevo_precio")
                 btn_agregar = st.form_submit_button("Agregar al Menú 🚀")
                 
                 if btn_agregar:
@@ -198,6 +199,8 @@ else:
                             st.warning("⚠ Ese guisado ya existe en el menú.")
                         else:
                             st.session_state.menu[nuevo_nombre] = {"precio": nuevo_precio, "activo": True}
+                            # Limpiamos explícitamente el valor en session_state para que aparezca vacío al recargar
+                            st.session_state["input_nuevo_nombre"] = ""
                             st.success(f"¡Guisado '{nuevo_nombre}' agregado con éxito!")
                             st.rerun()
                     else:
