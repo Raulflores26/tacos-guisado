@@ -16,7 +16,7 @@ if 'menu' not in st.session_state:
 if 'ventas' not in st.session_state:
     st.session_state.ventas = []
 
-# Variables de control para limpiar formularios
+# Variables de control para limpiar formularios de admin
 if 'form_key_counter' not in st.session_state:
     st.session_state.form_key_counter = 0
 
@@ -67,59 +67,65 @@ else:
     st.markdown("---")
 
     # ==========================================
-    # VISTA 1: CAJERO (VENTAS RÁPIDAS POR GUISADO)
+    # VISTA 1: CAJERO (SIN FORMULARIO PESADO, CORREGIBLE LIBREMENTE)
     # ==========================================
     if st.session_state.rol_usuario == "cajero":
         st.header("📲 Terminal de Venta (Cajero)")
-        st.write("Indica cuántos tacos de cada guisado lleva el cliente:")
+        st.write("Ajusta las cantidades con calma. Los cambios se quedan en pantalla hasta que cobres:")
 
         guisados_activos = {g: info for g, info in st.session_state.menu.items() if info["activo"]}
 
         if not guisados_activos:
             st.warning("⚠ No hay guisados activos hoy. Pídele al administrador que active el menú.")
         else:
-            with st.form("form_venta_multitaco"):
-                cantidades = {}
-                for guisado, info in guisados_activos.items():
-                    col_g, col_p, col_c = st.columns([2, 1, 1])
-                    with col_g:
-                        st.markdown(f"**{guisado}**")
-                    with col_p:
-                        st.caption(f"${info['precio']} c/u")
-                    with col_c:
-                        cantidades[guisado] = st.number_input(
-                            "Cant", min_value=0, max_value=50, value=0, 
-                            key=f"cajero_{guisado}", label_visibility="collapsed"
-                        )
+            cantidades = {}
+            total_orden_previo = 0
+
+            # Listamos los guisados directamente sin st.form para que el cajero pueda corregir sin que se borre nada
+            for guisado, info in guisados_activos.items():
+                col_g, col_p, col_c = st.columns([2, 1, 1])
+                with col_g:
+                    st.markdown(f"**{guisado}**")
+                with col_p:
+                    st.caption(f"${info['precio']} c/u")
+                with col_c:
+                    cantidades[guisado] = st.number_input(
+                        "Cant", min_value=0, max_value=50, value=0, 
+                        key=f"cajero_{guisado}", label_visibility="collapsed"
+                    )
                 
-                st.markdown("---")
-                enviar_orden = st.form_submit_button("🚀 Registrar Venta de la Orden", use_container_width=True)
+                total_orden_previo += cantidades[guisado] * info['precio']
+
+            st.markdown("---")
+            
+            # Mostramos el total en tiempo real mientras seleccionan
+            st.info(f"💵 Total de la orden actual: **${total_orden_previo} MXN**")
+
+            if st.button("🚀 Cobrar y Registrar Venta", type="primary", use_container_width=True):
+                items_vendidos = {g: cant for g, cant in cantidades.items() if cant > 0}
                 
-                if enviar_orden:
-                    items_vendidos = {g: cant for g, cant in cantidades.items() if cant > 0}
+                if not items_vendidos:
+                    st.warning("⚠️ Selecciona al menos un taco para registrar la venta.")
+                else:
+                    hora_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     
-                    if not items_vendidos:
-                        st.warning("⚠️ Selecciona al menos un taco para registrar la venta.")
-                    else:
-                        hora_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                        total_orden = 0
+                    for guisado, cantidad in items_vendidos.items():
+                        precio_unitario = st.session_state.menu[guisado]["precio"]
+                        total_linea = precio_unitario * cantidad
                         
-                        for guisado, cantidad in items_vendidos.items():
-                            precio_unitario = st.session_state.menu[guisado]["precio"]
-                            total_linea = precio_unitario * cantidad
-                            total_orden += total_linea
-                            
-                            st.session_state.ventas.append({
-                                "Hora": hora_actual,
-                                "Guisado": guisado,
-                                "Cantidad": cantidad,
-                                "Total": total_linea
-                            })
-                            
-                        st.success(f"¡Venta registrada con éxito! Total de la orden: ${total_orden} MXN")
-                        st.rerun()
+                        st.session_state.ventas.append({
+                            "Hora": hora_actual,
+                            "Guisado": guisado,
+                            "Cantidad": cantidad,
+                            "Total": total_linea
+                        })
+                        
+                    st.success(f"¡Venta registrada con éxito! Total cobrado: ${total_orden_previo} MXN")
+                    # No hacemos st.rerun inmediato para que alcance a ver el mensaje de éxito, 
+                    # y los valores se pueden resetear al recargar la siguiente venta.
 
         if st.session_state.ventas:
+            st.markdown("---")
             st.subheader("📋 Ventas Recientes de Hoy")
             df_ventas = pd.DataFrame(st.session_state.ventas)
             st.dataframe(df_ventas.tail(6), use_container_width=True)
@@ -130,7 +136,7 @@ else:
     elif st.session_state.rol_usuario == "dueño":
         st.header("📊 Panel de Control y Administración")
         
-        tab1, tab2 = st.tabs(["📈 Gráficas y Reportes", "⚙️ Modificar Menú y Precios"])
+        tab1, tab2 = st.tabs(["📈 Gráficas y Reportes", "⚙️️ Modificar Menú y Precios"])
 
         with tab1:
             st.subheader("Resumen de Ventas")
@@ -192,7 +198,6 @@ else:
             st.markdown("---")
             st.subheader("➕ Agregar Nuevo Guisado")
             
-            # Usamos un contador dinámico en el key del formulario para limpiar los campos al registrar
             form_key = f"form_agregar_guisado_{st.session_state.form_key_counter}"
             with st.form(form_key):
                 nuevo_nombre = st.text_input("Nombre del nuevo guisado (ej. Suadero)")
@@ -205,7 +210,6 @@ else:
                             st.warning("⚠ Ese guisado ya existe en el menú.")
                         else:
                             st.session_state.menu[nuevo_nombre] = {"precio": nuevo_precio, "activo": True}
-                            # Incrementamos el contador para recrear el formulario limpio en blanco
                             st.session_state.form_key_counter += 1
                             st.success(f"¡Guisado '{nuevo_nombre}' agregado con éxito!")
                             st.rerun()
