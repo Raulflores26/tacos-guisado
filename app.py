@@ -3,7 +3,45 @@ import pandas as pd
 from datetime import datetime
 
 # Configuración inicial de la página
-st.set_page_config(page_title="Control Taquería de Guisados", page_icon="🌮", layout="centered")
+st.set_page_config(page_title="¡Que tacos!", page_icon="🌮", layout="centered")
+
+# --- ESTILOS CSS MODERNOS (MODO UI CLEAN) ---
+st.markdown("""
+    <style>
+    /* Estilo general y fuente más limpia */
+    .stApp {
+        background-color: #f8fafc;
+    }
+    
+    /* Tarjetas contenedoras elegantes */
+    div.stForm, div[data-testid="stVerticalBlock"] > div.element-container {
+        border-radius: 12px;
+    }
+    
+    /* Botones principales modernos */
+    .stButton button[kind="primary"], div.stButton > button {
+        border-radius: 10px;
+        font-weight: 600;
+        letter-spacing: 0.3px;
+        transition: all 0.2s ease-in-out;
+    }
+    
+    /* Métricas con diseño limpio tipo tarjeta */
+    div[data-testid="stMetric"] {
+        background-color: white;
+        padding: 15px;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        border: 1px solid #e2e8f0;
+    }
+    
+    /* Encabezados más estilizados */
+    h1, h2, h3 {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        color: #1e293b;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
 # --- SIMULACIÓN DE BASE DE DATOS EN MEMORIA ---
 if 'menu' not in st.session_state:
@@ -16,7 +54,6 @@ if 'menu' not in st.session_state:
 if 'ventas' not in st.session_state:
     st.session_state.ventas = []
 
-# Variables de control para limpiar formularios de admin
 if 'form_key_counter' not in st.session_state:
     st.session_state.form_key_counter = 0
 
@@ -27,11 +64,12 @@ if 'rol_usuario' not in st.session_state:
     st.session_state.rol_usuario = None
 
 # TÍTULO PRINCIPAL
-st.title("🌮 Control de Ventas - Taquería")
+st.title("🌮 ¡Que tacos!")
+st.caption("Sistema inteligente de control de ventas y administración")
 
 # Si no ha iniciado sesión, mostramos la pantalla de acceso
 if not st.session_state.autenticado:
-    st.info("👋 ¡Hola! Por favor selecciona con qué perfil deseas entrar:")
+    st.markdown("### 🔐 Acceso al Sistema")
     
     with st.form("form_login"):
         rol_seleccionado = st.selectbox("Selecciona tu rol", ["Celular (Cajero / Ventas)", "Panel de Dueño (Reportes y Menú)"])
@@ -40,11 +78,11 @@ if not st.session_state.autenticado:
         if rol_seleccionado == "Panel de Dueño (Reportes y Menú)":
             password = st.text_input("Contraseña de Dueño", type="password")
             
-        btn_entrar = st.form_submit_button("Entrar 🚀")
+        btn_entrar = st.form_submit_button("Entrar al Sistema 🚀", use_container_width=True)
         
         if btn_entrar:
             if rol_seleccionado == "Panel de Dueño (Reportes y Menú)":
-                if password == "1234":  # Contraseña secreta
+                if password == "1234":  
                     st.session_state.autenticado = True
                     st.session_state.rol_usuario = "dueño"
                     st.rerun()
@@ -57,21 +95,24 @@ if not st.session_state.autenticado:
 
 # Si ya inició sesión, mostramos la aplicación según su rol
 else:
-    # BOTÓN DE SALIDA MUY VISIBLE ARRIBA
-    st.success(f"Sesión activa como: **{st.session_state.rol_usuario.upper()}**")
-    if st.button("🔒 Cerrar Sesión y Salir del Sistema"):
-        st.session_state.autenticado = False
-        st.session_state.rol_usuario = None
-        st.rerun()
+    # BARRA SUPERIOR DE SESIÓN
+    col_s1, col_s2 = st.columns([3, 1])
+    with col_s1:
+        st.info(f"👤 Sesión activa: **{st.session_state.rol_usuario.upper()}**")
+    with col_s2:
+        if st.button("🔒 Salir", use_container_width=True):
+            st.session_state.autenticado = False
+            st.session_state.rol_usuario = None
+            st.rerun()
     
     st.markdown("---")
 
     # ==========================================
-    # VISTA 1: CAJERO (SIN FORMULARIO PESADO, CORREGIBLE LIBREMENTE)
+    # VISTA 1: CAJERO (MODERNO Y RÁPIDO)
     # ==========================================
     if st.session_state.rol_usuario == "cajero":
-        st.header("📲 Terminal de Venta (Cajero)")
-        st.write("Ajusta las cantidades con calma. Los cambios se quedan en pantalla hasta que cobres:")
+        st.header("📲 Terminal de Venta")
+        st.markdown("Selecciona la cantidad de tacos para armar la orden:")
 
         guisados_activos = {g: info for g, info in st.session_state.menu.items() if info["activo"]}
 
@@ -81,25 +122,27 @@ else:
             cantidades = {}
             total_orden_previo = 0
 
-            # Listamos los guisados directamente sin st.form para que el cajero pueda corregir sin que se borre nada
             for guisado, info in guisados_activos.items():
-                col_g, col_p, col_c = st.columns([2, 1, 1])
-                with col_g:
-                    st.markdown(f"**{guisado}**")
-                with col_p:
-                    st.caption(f"${info['precio']} c/u")
-                with col_c:
-                    cantidades[guisado] = st.number_input(
-                        "Cant", min_value=0, max_value=50, value=0, 
-                        key=f"cajero_{guisado}", label_visibility="collapsed"
-                    )
-                
+                with st.container():
+                    col_g, col_p, col_c = st.columns([2, 1, 1])
+                    with col_g:
+                        st.markdown(f"**{guisado}**")
+                    with col_p:
+                        st.markdown(f"<span style='color: #64748b;'>${info['precio']} c/u</span>", unsafe_allow_html=True)
+                    with col_c:
+                        cantidades[guisado] = st.number_input(
+                            "Cant", min_value=0, max_value=50, value=0, 
+                            key=f"cajero_{guisado}", label_visibility="collapsed"
+                        )
+                st.divider()
                 total_orden_previo += cantidades[guisado] * info['precio']
 
-            st.markdown("---")
-            
-            # Mostramos el total en tiempo real mientras seleccionan
-            st.info(f"💵 Total de la orden actual: **${total_orden_previo} MXN**")
+            # Resumen flotante de cobro
+            st.markdown(f"""
+                <div style="background-color: #f1f5f9; padding: 15px; border-radius: 10px; text-align: center; margin-bottom: 15px;">
+                    <h3 style="margin: 0; color: #0f172a;">Total a cobrar: ${total_orden_previo} MXN</h3>
+                </div>
+            """, unsafe_allow_html=True)
 
             if st.button("🚀 Cobrar y Registrar Venta", type="primary", use_container_width=True):
                 items_vendidos = {g: cant for g, cant in cantidades.items() if cant > 0}
@@ -121,25 +164,23 @@ else:
                         })
                         
                     st.success(f"¡Venta registrada con éxito! Total cobrado: ${total_orden_previo} MXN")
-                    # No hacemos st.rerun inmediato para que alcance a ver el mensaje de éxito, 
-                    # y los valores se pueden resetear al recargar la siguiente venta.
 
         if st.session_state.ventas:
             st.markdown("---")
-            st.subheader("📋 Ventas Recientes de Hoy")
+            st.subheader("📋 Ventas Recientes")
             df_ventas = pd.DataFrame(st.session_state.ventas)
-            st.dataframe(df_ventas.tail(6), use_container_width=True)
+            st.dataframe(df_ventas.tail(6), use_container_width=True, hide_index=True)
 
     # ==========================================
-    # VISTA 2: PANEL DE DUEÑO (REPORTES Y MENÚ)
+    # VISTA 2: PANEL DE DUEÑO (MODERNO)
     # ==========================================
     elif st.session_state.rol_usuario == "dueño":
-        st.header("📊 Panel de Control y Administración")
+        st.header("📊 Panel de Control")
         
-        tab1, tab2 = st.tabs(["📈 Gráficas y Reportes", "⚙️️ Modificar Menú y Precios"])
+        tab1, tab2 = st.tabs(["📈 Reportes", "⚙️ Gestión de Menú"])
 
         with tab1:
-            st.subheader("Resumen de Ventas")
+            st.subheader("Resumen General")
             if not st.session_state.ventas:
                 st.info("Aún no hay ventas registradas hoy.")
             else:
@@ -149,15 +190,15 @@ else:
                 total_tacos = df_ventas["Cantidad"].sum()
                 
                 col1, col2 = st.columns(2)
-                col1.metric("Dinero Total Vendido", f"${total_dinero} MXN")
-                col2.metric("Total de Unidades Vendidas", total_tacos)
+                col1.metric("Dinero Total", f"${total_dinero} MXN")
+                col2.metric("Tacos Vendidos", total_tacos)
                 
                 st.markdown("### Guisados Más Vendidos")
                 ventas_por_guisado = df_ventas.groupby("Guisado")["Cantidad"].sum()
                 st.bar_chart(ventas_por_guisado)
 
                 st.markdown("---")
-                if st.button("🗑️ Borrar Historial de Ventas"):
+                if st.button("🗑️️ Borrar Historial de Ventas", type="secondary"):
                     st.session_state.ventas = []
                     st.success("¡Historial de ventas borrado con éxito!")
                     st.rerun()
@@ -170,7 +211,7 @@ else:
                 nuevos_estados = {}
                 
                 for guisado, info in st.session_state.menu.items():
-                    st.markdown(f"### 🌮 {guisado}")
+                    st.markdown(f"**🌮 {guisado}**")
                     col_p, col_a = st.columns(2)
                     with col_p:
                         nuevos_precios[guisado] = st.number_input(
@@ -187,7 +228,7 @@ else:
                         )
                     st.divider()
                     
-                guardar_cambios = st.form_submit_button("Guardar Cambios en Precios 💾")
+                guardar_cambios = st.form_submit_button("Guardar Cambios 💾", use_container_width=True)
                 
                 if guardar_cambios:
                     for guisado in st.session_state.menu:
@@ -202,7 +243,7 @@ else:
             with st.form(form_key):
                 nuevo_nombre = st.text_input("Nombre del nuevo guisado (ej. Suadero)")
                 nuevo_precio = st.number_input("Precio inicial ($ MXN)", min_value=0, value=25)
-                btn_agregar = st.form_submit_button("Agregar al Menú 🚀")
+                btn_agregar = st.form_submit_button("Agregar al Menú 🚀", use_container_width=True)
                 
                 if btn_agregar:
                     if nuevo_nombre.strip():
@@ -220,7 +261,7 @@ else:
             st.subheader("🗑️ Eliminar Guisado")
             if st.session_state.menu:
                 guisado_a_borrar = st.selectbox("Selecciona el guisado que deseas eliminar", list(st.session_state.menu.keys()))
-                if st.button("Eliminar Platillo ❌"):
+                if st.button("Eliminar Platillo ❌", use_container_width=True):
                     del st.session_state.menu[guisado_a_borrar]
                     st.success(f"¡Platillo '{guisado_a_borrar}' eliminado del menú!")
                     st.rerun()
