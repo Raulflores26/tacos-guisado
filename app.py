@@ -5,7 +5,7 @@ from datetime import datetime
 # Configuración inicial de la página
 st.set_page_config(page_title="Control Taquería de Guisados", page_icon="🌮", layout="centered")
 
-# --- SIMULACIÓN DE BASE DE DATOS EN MEMORIA (Luego la conectamos a la nube) ---
+# --- SIMULACIÓN DE BASE DE DATOS EN MEMORIA ---
 if 'menu' not in st.session_state:
     st.session_state.menu = {
         "Bistec en chile morita": {"precio": 25, "activo": True},
@@ -93,27 +93,34 @@ elif modo == "Panel de Dueño (Reportes y Menú)":
 
     with tab2:
         st.subheader("Configuración del Menú y Precios")
-        st.write("Modifica los precios o activa/desactiva los platillos y presiona el botón inferior para aplicar los cambios.")
+        st.write("Modifica los precios o activa/desactiva los platillos y presiona el botón para guardar.")
         
-        # Usamos un formulario para asegurar que los cambios se guarden solo al dar clic en el botón
         with st.form("form_editar_menu"):
-            nuevos_datos = {}
+            nuevos_precios = {}
+            nuevos_estados = {}
             
             for guisado, info in st.session_state.menu.items():
-                st.markdown(f"### 🍲 {guisado}")
-                col_a, col_b = st.columns(2)
-                
+                st.markdown(f"### 🌮 {guisado}")
+                col_p, col_a = st.columns(2)
+                with col_p:
+                    nuevos_precios[guisado] = st.number_input(
+                        f"Precio de {guisado}", 
+                        min_value=0, 
+                        value=info["precio"], 
+                        key=f"precio_{guisado}"
+                    )
                 with col_a:
-                    activo_ing = st.checkbox("¿Disponible hoy?", value=info["activo"], key=f"chk_{guisado}")
-                with col_b:
-                    precio_ing = st.number_input("Precio ($ MXN)", min_value=0, value=info["precio"], key=f"prc_{guisado}")
-                
-                nuevos_datos[guisado] = {"precio": precio_ing, "activo": activo_ing}
+                    nuevos_estados[guisado] = st.checkbox(
+                        "¿Disponible hoy?", 
+                        value=info["activo"], 
+                        key=f"activo_{guisado}"
+                    )
                 st.divider()
                 
-            # Botón exclusivo para confirmar la actualización
-            guardar_menu = st.form_submit_button("💾 Guardar Cambios del Menú")
+            guardar_cambios = st.form_submit_button("Guardar Cambios en el Menú 💾")
             
-            if guardar_menu:
-                st.session_state.menu = nuevos_datos
-                st.success("¡Menú y precios actualizados exitosamente! Ya se reflejan en la terminal.")
+            if guardar_cambios:
+                for guisado in st.session_state.menu:
+                    st.session_state.menu[guisado]["precio"] = nuevos_precios[guisado]
+                    st.session_state.menu[guisado]["activo"] = nuevos_estados[guisado]
+                st.success("¡Menú y precios actualizados correctamente!")
