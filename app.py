@@ -124,6 +124,13 @@ else:
                 ventas_por_guisado = df_ventas.groupby("Guisado")["Cantidad"].sum()
                 st.bar_chart(ventas_por_guisado)
 
+                st.markdown("---")
+                # BOTÓN PARA BORRAR EL HISTORIAL DE VENTAS
+                if st.button("🗑️ Borrar Historial de Ventas"):
+                    st.session_state.ventas = []
+                    st.success("¡Historial de ventas borrado con éxito!")
+                    st.rerun()
+
         with tab2:
             st.subheader("Modificar Precios y Disponibilidad")
             
