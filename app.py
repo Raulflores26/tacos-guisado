@@ -13,7 +13,6 @@ def cargar_ventas():
     if os.path.exists(ARCHIVO_VENTAS):
         try:
             df = pd.read_csv(ARCHIVO_VENTAS)
-            # Asegurar compatibilidad si el archivo antiguo no tenía estas columnas
             for col in ["EfectivoRecibido", "Cambio"]:
                 if col not in df.columns:
                     df[col] = 0.0
@@ -193,7 +192,7 @@ else:
                                 }
                                 guardar_venta_en_csv(nueva_venta)
                                 
-                            st.success(f"¡Venta registrada con éxito! Cambio entregado: ${cambio:.2f} MXN")
+                            st.success("¡Venta registrada con éxito!")
 
         df_ventas_actual = cargar_ventas()
         if not df_ventas_actual.empty:
@@ -349,4 +348,4 @@ else:
                     st.success(f"¡Platillo '{guisado_a_borrar}' eliminado del menú!")
                     st.rerun()
             else:
-                st.info("No hay guisados en el menú para eliminar.")
+                st.info("No hay guisados in el menú para eliminar.")
