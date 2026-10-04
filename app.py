@@ -12,11 +12,16 @@ ARCHIVO_VENTAS = "ventas_historico.csv"
 def cargar_ventas():
     if os.path.exists(ARCHIVO_VENTAS):
         try:
-            return pd.read_csv(ARCHIVO_VENTAS)
+            df = pd.read_csv(ARCHIVO_VENTAS)
+            # Asegurar compatibilidad si el archivo antiguo no tenía estas columnas
+            for col in ["EfectivoRecibido", "Cambio"]:
+                if col not in df.columns:
+                    df[col] = 0.0
+            return df
         except Exception:
-            return pd.DataFrame(columns=["Fecha", "Hora", "Guisado", "Cantidad", "Total"])
+            return pd.DataFrame(columns=["Fecha", "Hora", "Guisado", "Cantidad", "Total", "EfectivoRecibido", "Cambio"])
     else:
-        return pd.DataFrame(columns=["Fecha", "Hora", "Guisado", "Cantidad", "Total"])
+        return pd.DataFrame(columns=["Fecha", "Hora", "Guisado", "Cantidad", "Total", "EfectivoRecibido", "Cambio"])
 
 def guardar_venta_en_csv(nueva_venta):
     df_actual = cargar_ventas()
@@ -144,36 +149,51 @@ else:
                 st.divider()
                 total_orden_previo += cantidades[guisado] * info['precio']
 
-            # Resumen flotante de cobro
-            st.markdown(f"""
-                <div style="background-color: #f1f5f9; padding: 15px; border-radius: 10px; text-align: center; margin-bottom: 15px;">
-                    <h3 style="margin: 0; color: #0f172a;">Total a cobrar: ${total_orden_previo} MXN</h3>
-                </div>
-            """, unsafe_allow_html=True)
+            # Resumen y cálculo de cambio
+            if total_orden_previo > 0:
+                st.markdown(f"""
+                    <div style="background-color: #f1f5f9; padding: 15px; border-radius: 10px; text-align: center; margin-bottom: 15px;">
+                        <h3 style="margin: 0; color: #0f172a;">Total a cobrar: ${total_orden_previo} MXN</h3>
+                    </div>
+                """, unsafe_allow_html=True)
 
-            if st.button("🚀 Cobrar y Registrar Venta", type="primary", use_container_width=True):
-                items_vendidos = {g: cant for g, cant in cantidades.items() if cant > 0}
+                pago_con = st.number_input("💵 ¿Con cuánto paga el cliente? ($ MXN)", min_value=0.0, step=10.0, value=float(total_orden_previo))
                 
-                if not items_vendidos:
-                    st.warning("⚠️ Selecciona al menos un taco para registrar la venta.")
+                if pago_con < total_orden_previo:
+                    st.error("⚠️ El monto recibido es menor al total de la orden.")
+                    cambio = 0
                 else:
-                    fecha_actual = datetime.now().strftime("%Y-%m-%d")
-                    hora_actual = datetime.now().strftime("%H:%M:%S")
-                    
-                    for guisado, cantidad in items_vendidos.items():
-                        precio_unitario = st.session_state.menu[guisado]["precio"]
-                        total_linea = precio_unitario * cantidad
+                    cambio = pago_con - total_orden_previo
+                    st.success(f"🪙 **Cambio a regresar:** ${cambio:.2f} MXN")
+
+                if st.button("🚀 Cobrar y Registrar Venta", type="primary", use_container_width=True):
+                    if pago_con < total_orden_previo:
+                        st.warning("⚠️ Ingresa un monto de pago válido.")
+                    else:
+                        items_vendidos = {g: cant for g, cant in cantidades.items() if cant > 0}
                         
-                        nueva_venta = {
-                            "Fecha": fecha_actual,
-                            "Hora": hora_actual,
-                            "Guisado": guisado,
-                            "Cantidad": cantidad,
-                            "Total": total_linea
-                        }
-                        guardar_venta_en_csv(nueva_venta)
-                        
-                    st.success(f"¡Venta registrada con éxito! Total cobrado: ${total_orden_previo} MXN")
+                        if not items_vendidos:
+                            st.warning("⚠️ Selecciona al menos un taco para registrar la venta.")
+                        else:
+                            fecha_actual = datetime.now().strftime("%Y-%m-%d")
+                            hora_actual = datetime.now().strftime("%H:%M:%S")
+                            
+                            for guisado, cantidad in items_vendidos.items():
+                                precio_unitario = st.session_state.menu[guisado]["precio"]
+                                total_linea = precio_unitario * cantidad
+                                
+                                nueva_venta = {
+                                    "Fecha": fecha_actual,
+                                    "Hora": hora_actual,
+                                    "Guisado": guisado,
+                                    "Cantidad": cantidad,
+                                    "Total": total_linea,
+                                    "EfectivoRecibido": pago_con,
+                                    "Cambio": cambio
+                                }
+                                guardar_venta_en_csv(nueva_venta)
+                                
+                            st.success(f"¡Venta registrada con éxito! Cambio entregado: ${cambio:.2f} MXN")
 
         df_ventas_actual = cargar_ventas()
         if not df_ventas_actual.empty:
@@ -182,7 +202,7 @@ else:
             st.dataframe(df_ventas_actual.tail(6), use_container_width=True, hide_index=True)
 
     # ==========================================
-    # VISTA 2: PANEL DE DUEÑO (REPORTES HISTÓRICOS Y MENÚ)
+    # VISTA 2: PANEL DE DUEÑO (REPORTES Y MENÚ)
     # ==========================================
     elif st.session_state.rol_usuario == "dueño":
         st.header("📊 Panel de Control")
@@ -238,16 +258,13 @@ else:
             if df_ventas.empty:
                 st.info("Aún no hay registros de dinero para mostrar.")
             else:
-                # Agrupamos por fecha sumando el total de dinero y la cantidad de tacos
                 df_corte_diario = df_ventas.groupby("Fecha").agg(
                     Dinero_Reunido=("Total", "sum"),
                     Total_Tacos_Vendidos=("Cantidad", "sum")
                 ).reset_index()
                 
-                # Ordenar por fecha descendente
                 df_corte_diario = df_corte_diario.sort_values(by="Fecha", ascending=False)
                 
-                # Mostrar métrica del día actual si existe
                 hoy_str = datetime.now().strftime("%Y-%m-%d")
                 dinero_hoy = df_corte_diario.loc[df_corte_diario["Fecha"] == hoy_str, "Dinero_Reunido"]
                 total_hoy_val = dinero_hoy.values[0] if not dinero_hoy.empty else 0
@@ -256,7 +273,6 @@ else:
                 st.markdown("---")
                 
                 st.markdown("### 📊 Gráfica de Ingresos Diarios")
-                # Preparamos los datos para la gráfica de barras de dinero por día
                 chart_data = df_corte_diario.set_index("Fecha")["Dinero_Reunido"]
                 st.bar_chart(chart_data)
                 
