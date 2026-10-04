@@ -53,11 +53,13 @@ if not st.session_state.autenticado:
 
 # Si ya inició sesión, mostramos la aplicación según su rol
 else:
-    # Botón para cerrar sesión en la barra lateral
-    if st.sidebar.button("Cerrar Sesión 🔒"):
-        st.session_state.autenticado = False
-        st.session_state.rol_usuario = None
-        st.rerun()
+    # Botón para cerrar sesión y salir en la barra lateral
+    with st.sidebar:
+        st.write(f"👤 Conectado como: **{st.session_state.rol_usuario.upper()}**")
+        if st.button("Cerrar Sesión y Salir 🔒"):
+            st.session_state.autenticado = False
+            st.session_state.rol_usuario = None
+            st.rerun()
 
     # ==========================================
     # VISTA 1: CAJERO (VENTAS)
@@ -122,8 +124,7 @@ else:
                 st.bar_chart(ventas_por_guisado)
 
         with tab2:
-            st.subheader("Configuración del Menú y Precios")
-            st.write("Modifica los precios o activa/desactiva los platillos y presiona el botón para guardar.")
+            st.subheader("Modificar Precios y Disponibilidad")
             
             with st.form("form_editar_menu"):
                 nuevos_precios = {}
@@ -147,10 +148,39 @@ else:
                         )
                     st.divider()
                     
-                guardar_cambios = st.form_submit_button("Guardar Cambios en el Menú 💾")
+                guardar_cambios = st.form_submit_button("Guardar Cambios en Precios 💾")
                 
                 if guardar_cambios:
                     for guisado in st.session_state.menu:
                         st.session_state.menu[guisado]["precio"] = nuevos_precios[guisado]
                         st.session_state.menu[guisado]["activo"] = nuevos_estados[guisado]
                     st.success("¡Menú y precios actualizados correctamente!")
+
+            st.markdown("---")
+            st.subheader("➕ Agregar Nuevo Guisado")
+            with st.form("form_agregar_guisado"):
+                nuevo_nombre = st.text_input("Nombre del nuevo guisado (ej. Suadero)")
+                nuevo_precio = st.number_input("Precio inicial ($ MXN)", min_value=0, value=25)
+                btn_agregar = st.form_submit_button("Agregar al Menú 🚀")
+                
+                if btn_agregar:
+                    if nuevo_nombre.strip():
+                        if nuevo_nombre in st.session_state.menu:
+                            st.warning("⚠ Ese guisado ya existe en el menú.")
+                        else:
+                            st.session_state.menu[nuevo_nombre] = {"precio": nuevo_precio, "activo": True}
+                            st.success(f"¡Guisado '{nuevo_nombre}' agregado con éxito!")
+                            st.rerun()
+                    else:
+                        st.error("❌ Escribe un nombre válido para el guisado.")
+
+            st.markdown("---")
+            st.subheader("🗑️ Eliminar Guisado")
+            if st.session_state.menu:
+                guisado_a_borrar = st.selectbox("Selecciona el guisado que deseas eliminar", list(st.session_state.menu.keys()))
+                if st.button("Eliminar Platillo ❌"):
+                    del st.session_state.menu[guisado_a_borrar]
+                    st.success(f"¡Platillo '{guisado_a_borrar}' eliminado del menú!")
+                    st.rerun()
+            else:
+                st.info("No hay guisados en el menú para eliminar.")
