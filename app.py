@@ -1,32 +1,44 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
+import os
 
 # Configuración inicial de la página
 st.set_page_config(page_title="¡Que tacos!", page_icon="🌮", layout="centered")
 
+# --- ARCHIVO DE PERSISTENCIA LOCAL ---
+ARCHIVO_VENTAS = "ventas_historico.csv"
+
+def cargar_ventas():
+    if os.path.exists(ARCHIVO_VENTAS):
+        try:
+            return pd.read_csv(ARCHIVO_VENTAS)
+        except Exception:
+            return pd.DataFrame(columns=["Fecha", "Hora", "Guisado", "Cantidad", "Total"])
+    else:
+        return pd.DataFrame(columns=["Fecha", "Hora", "Guisado", "Cantidad", "Total"])
+
+def guardar_venta_en_csv(nueva_venta):
+    df_actual = cargar_ventas()
+    df_nueva_fila = pd.DataFrame([nueva_venta])
+    df_combinado = pd.concat([df_actual, df_nueva_fila], ignore_index=True)
+    df_combinado.to_csv(ARCHIVO_VENTAS, index=False)
+
 # --- ESTILOS CSS MODERNOS (MODO UI CLEAN) ---
 st.markdown("""
     <style>
-    /* Estilo general y fuente más limpia */
     .stApp {
         background-color: #f8fafc;
     }
-    
-    /* Tarjetas contenedoras elegantes */
     div.stForm, div[data-testid="stVerticalBlock"] > div.element-container {
         border-radius: 12px;
     }
-    
-    /* Botones principales modernos */
     .stButton button[kind="primary"], div.stButton > button {
         border-radius: 10px;
         font-weight: 600;
         letter-spacing: 0.3px;
         transition: all 0.2s ease-in-out;
     }
-    
-    /* Métricas con diseño limpio tipo tarjeta */
     div[data-testid="stMetric"] {
         background-color: white;
         padding: 15px;
@@ -34,8 +46,6 @@ st.markdown("""
         box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         border: 1px solid #e2e8f0;
     }
-    
-    /* Encabezados más estilizados */
     h1, h2, h3 {
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         color: #1e293b;
@@ -43,16 +53,13 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- SIMULACIÓN DE BASE DE DATOS EN MEMORIA ---
+# --- SIMULACIÓN DE MENÚ EN MEMORIA ---
 if 'menu' not in st.session_state:
     st.session_state.menu = {
         "Bistec en chile morita": {"precio": 25, "activo": True},
         "Longaniza con papas": {"precio": 22, "activo": True},
         "Chicharrón en salsa verde": {"precio": 25, "activo": False}
     }
-
-if 'ventas' not in st.session_state:
-    st.session_state.ventas = []
 
 if 'form_key_counter' not in st.session_state:
     st.session_state.form_key_counter = 0
@@ -150,60 +157,120 @@ else:
                 if not items_vendidos:
                     st.warning("⚠️ Selecciona al menos un taco para registrar la venta.")
                 else:
-                    hora_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    fecha_actual = datetime.now().strftime("%Y-%m-%d")
+                    hora_actual = datetime.now().strftime("%H:%M:%S")
                     
                     for guisado, cantidad in items_vendidos.items():
                         precio_unitario = st.session_state.menu[guisado]["precio"]
                         total_linea = precio_unitario * cantidad
                         
-                        st.session_state.ventas.append({
+                        nueva_venta = {
+                            "Fecha": fecha_actual,
                             "Hora": hora_actual,
                             "Guisado": guisado,
                             "Cantidad": cantidad,
                             "Total": total_linea
-                        })
+                        }
+                        guardar_venta_en_csv(nueva_venta)
                         
                     st.success(f"¡Venta registrada con éxito! Total cobrado: ${total_orden_previo} MXN")
 
-        if st.session_state.ventas:
+        df_ventas_actual = cargar_ventas()
+        if not df_ventas_actual.empty:
             st.markdown("---")
             st.subheader("📋 Ventas Recientes")
-            df_ventas = pd.DataFrame(st.session_state.ventas)
-            st.dataframe(df_ventas.tail(6), use_container_width=True, hide_index=True)
+            st.dataframe(df_ventas_actual.tail(6), use_container_width=True, hide_index=True)
 
     # ==========================================
-    # VISTA 2: PANEL DE DUEÑO (MODERNO)
+    # VISTA 2: PANEL DE DUEÑO (REPORTES HISTÓRICOS Y MENÚ)
     # ==========================================
     elif st.session_state.rol_usuario == "dueño":
         st.header("📊 Panel de Control")
         
-        tab1, tab2 = st.tabs(["📈 Reportes", "⚙️ Gestión de Menú"])
+        tab1, tab2, tab3 = st.tabs(["📈 Reportes y Fechas", "💵 Corte de Dinero Diario", "⚙️ Gestión de Menú"])
 
         with tab1:
-            st.subheader("Resumen General")
-            if not st.session_state.ventas:
-                st.info("Aún no hay ventas registradas hoy.")
+            st.subheader("Resumen e Historial por Periodo")
+            df_ventas = cargar_ventas()
+            
+            if df_ventas.empty:
+                st.info("Aún no hay ventas registradas en el sistema.")
             else:
-                df_ventas = pd.DataFrame(st.session_state.ventas)
+                tipo_filtro = st.radio("Filtrar reporte por:", ["Día Específico", "Mes Completo", "Histórico Total"], horizontal=True)
                 
-                total_dinero = df_ventas["Total"].sum()
-                total_tacos = df_ventas["Cantidad"].sum()
+                df_filtrado = df_ventas.copy()
                 
-                col1, col2 = st.columns(2)
-                col1.metric("Dinero Total", f"${total_dinero} MXN")
-                col2.metric("Tacos Vendidos", total_tacos)
-                
-                st.markdown("### Guisados Más Vendidos")
-                ventas_por_guisado = df_ventas.groupby("Guisado")["Cantidad"].sum()
-                st.bar_chart(ventas_por_guisado)
+                if tipo_filtro == "Día Específico":
+                    fechas_disponibles = sorted(df_ventas["Fecha"].unique(), reverse=True)
+                    fecha_elegida = st.selectbox("Selecciona la fecha", fechas_disponibles)
+                    df_filtrado = df_ventas[df_ventas["Fecha"] == fecha_elegida]
+                    
+                elif tipo_filtro == "Mes Completo":
+                    df_ventas["Mes"] = df_ventas["Fecha"].astype(str).str.slice(0, 7)
+                    meses_disponibles = sorted(df_ventas["Mes"].unique(), reverse=True)
+                    mes_elegido = st.selectbox("Selecciona el mes (YYYY-MM)", meses_disponibles)
+                    df_filtrado = df_ventas[df_ventas["Mes"] == mes_elegido]
 
                 st.markdown("---")
-                if st.button("🗑️️ Borrar Historial de Ventas", type="secondary"):
-                    st.session_state.ventas = []
-                    st.success("¡Historial de ventas borrado con éxito!")
-                    st.rerun()
+                
+                if df_filtrado.empty:
+                    st.warning("No hay ventas registradas para el filtro seleccionado.")
+                else:
+                    total_dinero = df_filtrado["Total"].sum()
+                    total_tacos = df_filtrado["Cantidad"].sum()
+                    
+                    col1, col2 = st.columns(2)
+                    col1.metric("Dinero Total", f"${total_dinero} MXN")
+                    col2.metric("Tacos Vendidos", total_tacos)
+                    
+                    st.markdown("### Guisados Más Vendidos en este periodo")
+                    ventas_por_guisado = df_filtrado.groupby("Guisado")["Cantidad"].sum()
+                    st.bar_chart(ventas_por_guisado)
+
+                    st.markdown("---")
+                    with st.expander("Ver detalle completo de transacciones"):
+                        st.dataframe(df_filtrado, use_container_width=True, hide_index=True)
 
         with tab2:
+            st.subheader("💵 Ingresos Totales por Día (Corte Diario)")
+            df_ventas = cargar_ventas()
+            
+            if df_ventas.empty:
+                st.info("Aún no hay registros de dinero para mostrar.")
+            else:
+                # Agrupamos por fecha sumando el total de dinero y la cantidad de tacos
+                df_corte_diario = df_ventas.groupby("Fecha").agg(
+                    Dinero_Reunido=("Total", "sum"),
+                    Total_Tacos_Vendidos=("Cantidad", "sum")
+                ).reset_index()
+                
+                # Ordenar por fecha descendente
+                df_corte_diario = df_corte_diario.sort_values(by="Fecha", ascending=False)
+                
+                # Mostrar métrica del día actual si existe
+                hoy_str = datetime.now().strftime("%Y-%m-%d")
+                dinero_hoy = df_corte_diario.loc[df_corte_diario["Fecha"] == hoy_str, "Dinero_Reunido"]
+                total_hoy_val = dinero_hoy.values[0] if not dinero_hoy.empty else 0
+                
+                st.metric("💰 Dinero Reunido Hoy", f"${total_hoy_val} MXN")
+                st.markdown("---")
+                
+                st.markdown("### 📊 Gráfica de Ingresos Diarios")
+                # Preparamos los datos para la gráfica de barras de dinero por día
+                chart_data = df_corte_diario.set_index("Fecha")["Dinero_Reunido"]
+                st.bar_chart(chart_data)
+                
+                st.markdown("### 📋 Tabla Histórica de Cortes Diarios")
+                st.dataframe(df_corte_diario, use_container_width=True, hide_index=True)
+
+            st.markdown("---")
+            if st.button("🗑️ Borrar Todo el Historial Registrado", type="secondary"):
+                if os.path.exists(ARCHIVO_VENTAS):
+                    os.remove(ARCHIVO_VENTAS)
+                st.success("¡Historial completo borrado con éxito!")
+                st.rerun()
+
+        with tab3:
             st.subheader("Modificar Precios y Disponibilidad")
             
             with st.form("form_editar_menu"):
