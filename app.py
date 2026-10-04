@@ -1,3 +1,4 @@
+Python
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -53,13 +54,14 @@ if not st.session_state.autenticado:
 
 # Si ya inició sesión, mostramos la aplicación según su rol
 else:
-    # Botón para cerrar sesión y salir en la barra lateral
-    with st.sidebar:
-        st.write(f"👤 Conectado como: **{st.session_state.rol_usuario.upper()}**")
-        if st.button("Cerrar Sesión y Salir 🔒"):
-            st.session_state.autenticado = False
-            st.session_state.rol_usuario = None
-            st.rerun()
+    # BOTÓN DE SALIDA MUY VISIBLE ARRIBA
+    st.success(f"Sesión activa como: **{st.session_state.rol_usuario.upper()}**")
+    if st.button("🔒 Cerrar Sesión y Salir del Sistema"):
+        st.session_state.autenticado = False
+        st.session_state.rol_usuario = None
+        st.rerun()
+    
+    st.markdown("---")
 
     # ==========================================
     # VISTA 1: CAJERO (VENTAS)
@@ -101,7 +103,7 @@ else:
     # VISTA 2: PANEL DE DUEÑO (REPORTES Y MENÚ)
     # ==========================================
     elif st.session_state.rol_usuario == "dueño":
-        st.header("📊 Panel de Control y Administración (Dueño)")
+        st.header("📊 Panel de Control y Administración")
         
         tab1, tab2 = st.tabs(["📈 Gráficas y Reportes", "⚙️ Modificar Menú y Precios"])
 
